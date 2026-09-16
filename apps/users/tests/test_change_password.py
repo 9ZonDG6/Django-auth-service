@@ -12,12 +12,12 @@ pytestmark = pytest.mark.django_db
 
 OLD_PASSWORD = "Old-Str0ng-Pass-92!"
 NEW_PASSWORD = "New-Str0nger-Pass-93!"
-CHANGE_PASSWORD_URL = "/users/change-password/"
+CHANGE_PASSWORD_URL = "/api/v1/users/change-password/"
 
 
 def _login(api_client: APIClient, *, username: str = "cpuser") -> dict:
     User.objects.create_user(username=username, password=OLD_PASSWORD)
-    response = api_client.post("/auth/login/", {"username": username, "password": OLD_PASSWORD})
+    response = api_client.post("/api/v1/auth/login/", {"username": username, "password": OLD_PASSWORD})
     return response.data
 
 
@@ -50,10 +50,10 @@ def test_change_password_success_allows_relogin_with_new_password(api_client: AP
     assert response.status_code == status.HTTP_200_OK
 
     api_client.credentials()
-    old_login = api_client.post("/auth/login/", {"username": "cpuser", "password": OLD_PASSWORD})
+    old_login = api_client.post("/api/v1/auth/login/", {"username": "cpuser", "password": OLD_PASSWORD})
     assert old_login.status_code == status.HTTP_401_UNAUTHORIZED
 
-    new_login = api_client.post("/auth/login/", {"username": "cpuser", "password": NEW_PASSWORD})
+    new_login = api_client.post("/api/v1/auth/login/", {"username": "cpuser", "password": NEW_PASSWORD})
     assert new_login.status_code == status.HTTP_200_OK
 
 
@@ -65,7 +65,7 @@ def test_change_password_revokes_old_refresh_token(api_client: APIClient) -> Non
     api_client.post(CHANGE_PASSWORD_URL, {"old_password": OLD_PASSWORD, "new_password": NEW_PASSWORD})
 
     api_client.credentials()
-    response = api_client.post("/auth/refresh/", {"refresh": tokens["refresh"]})
+    response = api_client.post("/api/v1/auth/refresh/", {"refresh": tokens["refresh"]})
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -77,7 +77,7 @@ def test_change_password_invalidates_old_access_token_immediately(api_client: AP
 
     api_client.post(CHANGE_PASSWORD_URL, {"old_password": OLD_PASSWORD, "new_password": NEW_PASSWORD})
 
-    response = api_client.get("/users/me/")
+    response = api_client.get("/api/v1/users/me/")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 

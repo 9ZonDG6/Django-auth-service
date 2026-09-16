@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.django_db
 
-REGISTER_URL = "/users/register/"
+REGISTER_URL = "/api/v1/users/register/"
 
 
 def test_register_creates_user(api_client: APIClient) -> None:

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.django_db
 
 PASSWORD = "Str0ng-Pass-92!"
-LOGIN_URL = "/auth/login/"
+LOGIN_URL = "/api/v1/auth/login/"
 
 
 def _create_user(**extra_fields: str) -> User:

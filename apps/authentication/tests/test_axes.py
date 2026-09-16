@@ -21,7 +21,7 @@ PASSWORD = "Str0ng-Pass-92!"
 def test_lockout_expires_without_extension(api_client: APIClient, endpoint: str) -> None:
     """Попытки во время блокировки не сдвигают срок её окончания в API и admin."""
     User.objects.create_user(username="axesuser", password=PASSWORD, is_staff=True)
-    url = "/auth/login/" if endpoint == "api" else reverse("admin:login")
+    url = "/api/v1/auth/login/" if endpoint == "api" else reverse("admin:login")
     started = timezone.now()
     credentials = {"username": "axesuser", "password": PASSWORD}
 
@@ -63,7 +63,7 @@ def test_api_lockout_response(api_client: APIClient, username: str, request_form
     User.objects.create_user(username="axesuser", password=PASSWORD)
     for _ in range(settings.AXES_FAILURE_LIMIT):
         response = api_client.post(
-            "/auth/login/", {"username": username, "password": "wrong-password"}, format=request_format
+            "/api/v1/auth/login/", {"username": username, "password": "wrong-password"}, format=request_format
         )
     assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert response["Content-Type"].startswith("application/json")

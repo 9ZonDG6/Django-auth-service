@@ -3,8 +3,12 @@
 [![CI](https://github.com/9ZonDG6/Django-auth-service/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/9ZonDG6/Django-auth-service/actions/workflows/ci.yml)
 
 Сервис общей аутентификации на Django и Django REST Framework. Хранит пользователей,
-проверяет пароли и выдаёт JWT. Другие сервисы могут проверять подпись токенов
-по публичному ключу, не получая приватный ключ сервиса авторизации.
+проверяет пароли и выдаёт JWT с подписью RS256. Для проверки токенов другими
+микросервисами используем **JWKS**: публичные ключи доступны по адресу
+`/.well-known/jwks.json`, а заголовок `kid` в JWT указывает нужный ключ.
+Сервис-потребитель получает и кэширует JWKS, затем проверяет токены локально.
+Приватный ключ и доступ к базе пользователей ему не нужны. Такой способ
+проверки уже используется в [Django-tasks-service](https://github.com/9ZonDG6/Django-tasks-service).
 
 ## Быстрый запуск
 
@@ -26,11 +30,11 @@ make server
 
 После запуска доступны:
 
-- Swagger: http://127.0.0.1:8000/backend/swagger/
-- ReDoc: http://127.0.0.1:8000/backend/redoc/
-- OpenAPI: http://127.0.0.1:8000/backend/schema/
-- Админка: http://127.0.0.1:8000/backend/admin/
-- Публичный ключ в формате JWKS: http://127.0.0.1:8000/auth/jwks.json
+- Swagger: http://localhost:8000/api/docs/
+- ReDoc: http://localhost:8000/api/redoc/
+- OpenAPI: http://localhost:8000/api/schema/
+- Админка: http://localhost:8000/admin/
+- Публичный ключ в формате JWKS: http://localhost:8000/.well-known/jwks.json
 
 Есть `make createsuperuser`: он создаёт **admin/admin** и работает только при
 `ENVIRONMENT=local`.
@@ -42,22 +46,22 @@ make server
 
 | Метод | Адрес                     | Что делает                                        | Нужен access |
 | ----- | ------------------------- | ------------------------------------------------- | ------------ |
-| POST  | `/users/register/`        | Создаёт пользователя                              | Нет          |
-| POST  | `/auth/login/`            | Возвращает access и refresh                       | Нет          |
-| POST  | `/auth/refresh/`          | Заменяет refresh и выдаёт новый access            | Нет          |
-| POST  | `/auth/logout/`           | Отзывает переданный refresh текущего пользователя | Да           |
-| GET   | `/users/me/`              | Возвращает профиль                                | Да           |
-| POST  | `/users/change-password/` | Меняет пароль и отзывает все refresh пользователя | Да           |
-| GET   | `/auth/jwks.json`         | Возвращает публичный ключ                         | Нет          |
+| POST  | `/api/v1/users/register/`        | Создаёт пользователя                              | Нет          |
+| POST  | `/api/v1/auth/login/`            | Возвращает access и refresh                       | Нет          |
+| POST  | `/api/v1/auth/refresh/`          | Заменяет refresh и выдаёт новый access            | Нет          |
+| POST  | `/api/v1/auth/logout/`           | Отзывает переданный refresh текущего пользователя | Да           |
+| GET   | `/api/v1/users/me/`              | Возвращает профиль                                | Да           |
+| POST  | `/api/v1/users/change-password/` | Меняет пароль и отзывает все refresh пользователя | Да           |
+| GET   | `/.well-known/jwks.json`         | Возвращает публичный ключ                         | Нет          |
 
 ### Регистрация и вход
 
 ```bash
-curl -X POST http://127.0.0.1:8000/users/register/ \
+curl -X POST http://localhost:8000/api/v1/users/register/ \
   -H 'Content-Type: application/json' \
   -d '{"username": "alice", "password": "Example-Pass-92!", "email": "alice@example.com"}'
 
-curl -X POST http://127.0.0.1:8000/auth/login/ \
+curl -X POST http://localhost:8000/api/v1/auth/login/ \
   -H 'Content-Type: application/json' \
   -d '{"username": "alice", "password": "Example-Pass-92!"}'
 ```
@@ -79,14 +83,14 @@ curl -X POST http://127.0.0.1:8000/auth/login/ \
 ### Профиль, обновление и выход
 
 ```bash
-curl http://127.0.0.1:8000/users/me/ \
+curl http://localhost:8000/api/v1/users/me/ \
   -H 'Authorization: Bearer <access-token>'
 
-curl -X POST http://127.0.0.1:8000/auth/refresh/ \
+curl -X POST http://localhost:8000/api/v1/auth/refresh/ \
   -H 'Content-Type: application/json' \
   -d '{"refresh": "<refresh-token>"}'
 
-curl -X POST http://127.0.0.1:8000/auth/logout/ \
+curl -X POST http://localhost:8000/api/v1/auth/logout/ \
   -H 'Authorization: Bearer <access-token>' \
   -H 'Content-Type: application/json' \
   -d '{"refresh": "<refresh-token>"}'
@@ -95,7 +99,7 @@ curl -X POST http://127.0.0.1:8000/auth/logout/ \
 После обновления сохрани **оба новых токена**: использованный refresh отзывается.
 Для выхода передавай актуальный refresh. Успешный выход возвращает `205` без тела.
 
-Для смены пароля отправь на `/users/change-password/` поля `old_password` и
+Для смены пароля отправь на `/api/v1/users/change-password/` поля `old_password` и
 `new_password` с access-токеном в заголовке. После успешной смены нужно войти заново.
 
 ## Как устроены токены
@@ -104,7 +108,7 @@ curl -X POST http://127.0.0.1:8000/auth/logout/ \
 - Access действует **15 минут**, refresh — **7 дней** с момента выдачи.
 - При обновлении создаётся новая пара с актуальными ролями и признаками пользователя.
 - В токены добавляются `username`, `roles`, `is_staff` и `is_superuser`.
-- Заголовок `kid` связывает токен с ключом из `/auth/jwks.json`.
+- Заголовок `kid` связывает токен с ключом из `/.well-known/jwks.json`.
 - Значение `iss` задаётся через `JWT_ISSUER`.
 
 Другой сервис должен проверять подпись, допустимый алгоритм, издателя, срок действия
@@ -240,11 +244,11 @@ make check-deploy        # Проверка Django с production-настрой�
 
 [Django-tasks-service](https://github.com/9ZonDG6/Django-tasks-service) — отдельный
 пример потребителя JWT. Он хранит задачи в своей БД и проверяет access-токены
-через `/auth/jwks.json`. Пароли, приватный ключ и доступ к БД пользователей ему не нужны.
+через `/.well-known/jwks.json`. Пароли, приватный ключ и доступ к БД пользователей ему не нужны.
 
 Локально этот сервис работает на порту 8000, сервис задач — на 8001. Получи токены
-через `/auth/login/` и передавай access в `Authorization: Bearer ...` при запросах
-к `http://127.0.0.1:8001/api/tasks/`. Каждый пользователь видит только свои задачи.
+через `/api/v1/auth/login/` и передавай access в `Authorization: Bearer ...` при запросах
+к `http://localhost:8001/api/v1/tasks/`. Каждый пользователь видит только свои задачи.
 Инструкция запуска находится в README сервиса задач.
 
 Проверку назначения токена можно включить согласованно: здесь задать
@@ -252,3 +256,33 @@ make check-deploy        # Проверка Django с production-настрой�
 оба приложения и получить новую пару токенов. По умолчанию audience пуст для
 совместимости с уже выданными токенами. Это общий audience для выдаваемых токенов,
 а не механизм выбора отдельной аудитории при каждом входе.
+
+
+## Общие соглашения сервисов
+
+API обоих проектов использует префикс `/api/v1/` и завершающий `/`.
+Публичные ключи auth доступны по `/.well-known/jwks.json` независимо от версии API.
+Документация auth находится на `/api/docs/`, `/api/redoc/` и `/api/schema/`,
+админка — на `/admin/`. Старые адреса `/auth/`, `/users/`, `/backend/` и
+`/api/tasks/` заменены; клиенты должны перейти на новые пути.
+
+Приложения находятся в `apps/`, настройки разделены по назначению в
+`config/settings/`. Тесты приложения лежат рядом с ним, межсервисные тесты —
+в `tests/` репозитория задач. Отдельная таблица пользователей в tasks не создаётся.
+
+Полная проверка взаимодействия запускается из проекта задач:
+
+```bash
+AUTH_SERVICE_DIR=/path/to/Django-auth-service uv run pytest tests/test_e2e.py -q
+```
+
+Тест запускает оба приложения по HTTP на свободных локальных портах, с отдельными
+временными SQLite-базами и новой парой RSA-ключей. Проверяет регистрацию, вход,
+получение JWKS, доступ к своим задачам, запрет доступа к чужим, обновление и отзыв
+refresh. Рабочие базы и ключи не используются. У обоих проектов должны быть
+установлены зависимости в `.venv`.
+
+В GitHub Actions обоих репозиториев это отдельное задание `HTTP integration`.
+Для согласованных изменений используется одноимённая ветка второго проекта,
+если она существует; иначе берётся его основная ветка. Это проверка совместимости
+двух текущих версий, а не фиксация версии зависимости для production.
