@@ -5,18 +5,19 @@ from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic import RedirectView
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
+from apps.authentication.views import JWKSView
 from config.settings.django import MEDIA_ROOT, MEDIA_URL
 from config.settings.env import DEBUG, SILK_ENABLED
 
 urlpatterns: list[URLPattern | URLResolver] = [
-    path("", RedirectView.as_view(url="/backend/swagger/")),
-    path("backend/", RedirectView.as_view(url="/backend/swagger/")),
-    path("backend/admin/", admin.site.urls),
-    path("backend/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("backend/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-    path("backend/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    path("auth/", include("apps.authentication.urls")),
-    path("users/", include("apps.users.urls")),
+    path(".well-known/jwks.json", JWKSView.as_view(), name="jwks"),
+    path("", RedirectView.as_view(url="/api/docs/")),
+    path("admin/", admin.site.urls),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("api/v1/auth/", include("apps.authentication.urls")),
+    path("api/v1/users/", include("apps.users.urls")),
 ]
 
 if SILK_ENABLED:
