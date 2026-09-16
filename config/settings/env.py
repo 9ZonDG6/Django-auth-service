@@ -69,3 +69,5 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 JWT_SIGNING_KEY = base64.b64decode(env("JWT_SIGNING_KEY", default="")).decode()
 JWT_VERIFYING_KEY = base64.b64decode(env("JWT_VERIFYING_KEY", default="")).decode()
 JWT_ISSUER = env("JWT_ISSUER", default="django-template-auth")
+
+JWT_AUDIENCE = env("JWT_AUDIENCE", default="")

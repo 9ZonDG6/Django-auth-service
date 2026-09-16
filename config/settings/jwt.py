@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from config.settings.env import JWT_ISSUER, JWT_SIGNING_KEY, JWT_VERIFYING_KEY
+from config.settings.env import JWT_AUDIENCE, JWT_ISSUER, JWT_SIGNING_KEY, JWT_VERIFYING_KEY
 
 SIMPLE_JWT = {
     "ALGORITHM": "RS256",
@@ -13,6 +13,7 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "UPDATE_LAST_LOGIN": True,
     "ISSUER": JWT_ISSUER,
+    "AUDIENCE": JWT_AUDIENCE or None,
     "LEEWAY": timedelta(seconds=10),
     "CHECK_REVOKE_TOKEN": True,
 }
