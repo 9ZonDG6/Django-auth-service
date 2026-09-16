@@ -1,8 +1,8 @@
-# Django Auth Service
+# Django-auth-service
 
-[![CI](https://github.com/9ZonDG6/Django-template/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/9ZonDG6/Django-template/actions/workflows/ci.yml)
+[![CI](https://github.com/9ZonDG6/Django-auth-service/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/9ZonDG6/Django-auth-service/actions/workflows/ci.yml)
 
-Сервис общей аутентификации и Django REST Framework. Хранит пользователей,
+Сервис общей аутентификации на Django и Django REST Framework. Хранит пользователей,
 проверяет пароли и выдаёт JWT. Другие сервисы могут проверять подпись токенов
 по публичному ключу, не получая приватный ключ сервиса авторизации.
 

@@ -1,7 +1,7 @@
 [project]
-name = "django-template"
+name = "django-auth-service"
 version = "0.2.4"
-description = "The best Django template project."
+description = "Shared authentication service built with Django and Django REST Framework."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
