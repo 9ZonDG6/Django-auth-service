@@ -137,7 +137,7 @@ JWKS сейчас содержит один публичный ключ. Авт�
 | `DATABASE_ENGINE`                                                                     | `django.db.backends.sqlite3` или `django.db.backends.postgresql`             |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT` | Подключение к PostgreSQL                                                     |
 | `JWT_SIGNING_KEY`, `JWT_VERIFYING_KEY`                                                | Приватный и публичный PEM-ключи, закодированные в base64                     |
-| `JWT_ISSUER`                                                                          | Издатель JWT; по умолчанию `django-template-auth`                            |
+| `JWT_ISSUER`                                                                          | Издатель JWT; по умолчанию `django-auth-service`                            |
 | `AXES_FAILURE_TRIES`, `AXES_COOLOFF_MINUTES`                                          | Лимит ошибок входа и срок блокировки                                         |
 | `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_ALL_ORIGINS`                                      | Разрешённые источники браузерных запросов                                    |
 | `CSRF_TRUSTED_ORIGINS`                                                                | Доверенные источники для CSRF-проверки                                       |
