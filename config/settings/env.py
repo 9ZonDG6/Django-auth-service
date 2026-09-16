@@ -1,6 +1,10 @@
+import base64
+import importlib.util
 from pathlib import Path
 
 import environ
+
+from config.settings.apps import INSTALLED_APPS
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -19,6 +23,18 @@ SILK_ENABLED = env.bool("SILK_ENABLED", default=True)
 AXES_ENABLED = env.bool("AXES_ENABLED", default=True)
 ZEAL_ENABLED = env.bool("ZEAL_ENABLED", default=True)
 LOGGING_ENABLED = env.bool("LOGGING_ENABLED", default=True)
+
+if EXTRA_CHECKS_ENABLED := env.bool(
+    "EXTRA_CHECKS_ENABLED",
+    default=ENVIRONMENT == "local" and importlib.util.find_spec("extra_checks") is not None,
+):
+    INSTALLED_APPS.append("extra_checks")
+
+if QUERY_COUNTER_ENABLED := env.bool(
+    "QUERY_COUNTER_ENABLED",
+    default=ENVIRONMENT == "local" and importlib.util.find_spec("query_counter") is not None,
+):
+    INSTALLED_APPS.append("query_counter")
 
 # Axes
 AXES_FAILURE_TRIES = env.int("AXES_FAILURE_TRIES", default=5)
@@ -49,3 +65,7 @@ CORS_ALLOW_ALL_ORIGINS = env.bool(
     default=ENVIRONMENT == "local",
 )
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
+JWT_SIGNING_KEY = base64.b64decode(env("JWT_SIGNING_KEY", default="")).decode()
+JWT_VERIFYING_KEY = base64.b64decode(env("JWT_VERIFYING_KEY", default="")).decode()
+JWT_ISSUER = env("JWT_ISSUER", default="django-template-auth")

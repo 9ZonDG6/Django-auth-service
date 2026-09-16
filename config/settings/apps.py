@@ -6,11 +6,10 @@ LOCAL_APPS = [
 THIRD_PARTY_APPS = [
     "corsheaders",
     "django_safe_migrations",
-    "extra_checks",
     "rest_framework",
     "django_filters",
     "drf_spectacular",
-    "query_counter",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 INSTALLED_APPS = [

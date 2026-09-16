@@ -12,8 +12,9 @@ if AXES_ENABLED:
 
     AXES_LOCK_OUT_AT_FAILURE = True
     AXES_RESET_ON_SUCCESS = True
+    AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
 
     AXES_USE_ATTEMPT_EXPIRATION = True
     AXES_HTTP_RESPONSE_CODE = 429
 
-    AXES_LOCKOUT_PARAMETERS = ["ip_address", ["username", "user_agent"]]
+    AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]

@@ -7,6 +7,7 @@ include(
     "apps.py",
     "database.py",
     "logging.py",
+    "jwt.py",
     "rest_framework.py",
     "silk.py",
     "axes.py",

@@ -111,3 +111,65 @@ def test_remove_staff_excludes_current_user() -> None:
     assert other_user.is_staff is False
     assert other_user.updated_at == action_time
     message_user.assert_called_once_with(request, "Статус персонала снят: 1")
+
+
+def test_bulk_action_does_not_affect_superuser_when_actor_is_not_superuser() -> None:
+    """Staff без is_superuser не может задеть суперпользователя bulk-экшеном."""
+    staff = User.objects.create(username="low-staff", is_staff=True, is_superuser=False)
+    target_superuser = User.objects.create(username="target-super", is_superuser=True)
+    request = _request_for(staff)
+    user_admin = _user_admin()
+
+    with patch.object(user_admin, "message_user"):
+        user_admin.deactivate_users(request, User.objects.filter(pk=target_superuser.pk))
+
+    target_superuser.refresh_from_db()
+    assert target_superuser.is_active is True
+
+
+def test_bulk_action_affects_superuser_when_actor_is_superuser() -> None:
+    """Суперпользователь может воздействовать bulk-экшеном на другого суперпользователя."""
+    acting_superuser = User.objects.create(username="acting-super", is_superuser=True)
+    target_superuser = User.objects.create(username="target-super-2", is_superuser=True)
+    request = _request_for(acting_superuser)
+    user_admin = _user_admin()
+
+    with patch.object(user_admin, "message_user"):
+        user_admin.deactivate_users(request, User.objects.filter(pk=target_superuser.pk))
+
+    target_superuser.refresh_from_db()
+    assert target_superuser.is_active is False
+
+
+def _fieldset_fields(user_admin: UserAdmin, request: HttpRequest, obj: User) -> set[str]:
+    """Собрать плоский набор имён полей из get_fieldsets (для редактирования obj)."""
+    fields: set[str] = set()
+    for _, options in user_admin.get_fieldsets(request, obj):
+        raw_fields = options.get("fields", ())
+        if isinstance(raw_fields, (list, tuple)):
+            fields.update(str(f) for f in raw_fields)
+    return fields
+
+
+def test_fieldsets_hide_is_superuser_and_groups_for_non_superuser() -> None:
+    """Не-суперпользователь не должен видеть is_superuser/groups в форме редактирования."""
+    staff = User.objects.create(username="low-staff-2", is_staff=True, is_superuser=False)
+    request = _request_for(staff)
+    user_admin = _user_admin()
+
+    fields = _fieldset_fields(user_admin, request, staff)
+
+    assert "is_superuser" not in fields
+    assert "groups" not in fields
+
+
+def test_fieldsets_show_is_superuser_and_groups_for_superuser() -> None:
+    """Суперпользователь по-прежнему видит is_superuser/groups в форме редактирования."""
+    superuser = User.objects.create(username="super-fieldsets", is_superuser=True)
+    request = _request_for(superuser)
+    user_admin = _user_admin()
+
+    fields = _fieldset_fields(user_admin, request, superuser)
+
+    assert "is_superuser" in fields
+    assert "groups" in fields

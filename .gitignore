@@ -29,3 +29,7 @@ staticfiles/
 .vscode/
 .idea/
 .zed/
+
+# JWT
+jwt-private.pem
+jwt-public.pem

@@ -20,6 +20,10 @@ dependencies = [
     "psycopg[binary]>=3.3.4",
     "pygments>=2.20.0",
     "sqlparse>=0.5.5",
+    "djangorestframework-simplejwt[crypto]>=5.5.1",
+    "pyjwt>=2.13.0",
+    "django-zeal>=2.2.4",
+    "argon2-cffi>=25.1.0",
 ]
 
 [dependency-groups]
@@ -27,7 +31,6 @@ dev = [
     "django-extra-checks>=0.17.0",
     "django-query-counter>=0.5.0",
     "django-stubs>=6.0.4",
-    "django-zeal>=2.2.0",
     "djangorestframework-stubs>=3.17.0",
     "dotenv-linter>=0.7.0",
     "dump-env>=1.7.0",
@@ -92,7 +95,7 @@ split-on-trailing-comma = true
 check-typed-exception = true
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*.py" = ["assert"]
+"**/tests/*.py" = ["assert", "hardcoded-password-string", "hardcoded-password-func-arg"]
 "**/apps.py" = ["undocumented-public-class"]
 "config/settings/__init__.py" = ["non-empty-init-module"]
 "**/base_model.py" = ["undocumented-public-nested-class"]

@@ -13,5 +13,10 @@ if ZEAL_ENABLED:
 
     ZEAL_RAISE = False
 
+    ZEAL_ALLOWLIST = [
+        {"model": "silk.Request", "field": "response"},
+        {"model": "sessions.Session", "field": "get()"},
+    ]
+
     if LOGGING_ENABLED:
         globals()["LOGGING"]["loggers"]["py.warnings"]["handlers"].append("zeal_file")

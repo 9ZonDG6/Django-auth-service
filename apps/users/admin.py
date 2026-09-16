@@ -108,6 +108,29 @@ class UserAdmin(DjangoUserAdmin):
         "remove_staff",
     )
 
+    def get_fieldsets(  # ty: ignore[invalid-method-override]
+        self,
+        request: HttpRequest,
+        obj: User | None = None,
+    ) -> tuple[tuple[str | None, dict[str, object]], ...]:
+        """Скрыть is_superuser/groups от staff без is_superuser."""
+        fieldsets = super().get_fieldsets(request, obj)
+        if isinstance(request.user, User) and request.user.is_superuser:
+            return fieldsets  # ty: ignore[invalid-return-type]
+
+        restricted_fields = {"is_superuser", "groups"}
+        return tuple(
+            (name, {**options, "fields": tuple(f for f in options["fields"] if f not in restricted_fields)})
+            for name, options in fieldsets
+        )  # ty: ignore[invalid-return-type]
+
+    @staticmethod
+    def _exclude_superusers_for_non_superuser(request: HttpRequest, queryset: QuerySet[User]) -> QuerySet[User]:
+        """Не дать staff без is_superuser задеть суперпользователей bulk-экшеном."""
+        if isinstance(request.user, User) and request.user.is_superuser:
+            return queryset
+        return queryset.exclude(is_superuser=True)
+
     @staticmethod
     @admin.display(description="Пользователь", ordering="username")
     def account(obj: User) -> str:
@@ -134,23 +157,27 @@ class UserAdmin(DjangoUserAdmin):
     @admin.action(description="Активировать выбранных пользователей")
     def activate_users(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
         """Активировать выбранных пользователей."""
+        queryset = self._exclude_superusers_for_non_superuser(request, queryset)
         updated_count = queryset.update(is_active=True, updated_at=timezone.now())
         self.message_user(request, f"Активировано пользователей: {updated_count}")
 
     @admin.action(description="Заблокировать выбранных пользователей")
     def deactivate_users(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
         """Заблокировать выбранных пользователей, кроме текущего."""
-        updated_count = queryset.exclude(pk=request.user.pk).update(is_active=False, updated_at=timezone.now())
+        queryset = self._exclude_superusers_for_non_superuser(request, queryset).exclude(pk=request.user.pk)
+        updated_count = queryset.update(is_active=False, updated_at=timezone.now())
         self.message_user(request, f"Заблокировано пользователей: {updated_count}")
 
     @admin.action(description="Выдать статус персонала")
     def make_staff(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
         """Выдать выбранным пользователям статус персонала."""
+        queryset = self._exclude_superusers_for_non_superuser(request, queryset)
         updated_count = queryset.update(is_staff=True, updated_at=timezone.now())
         self.message_user(request, f"Статус персонала выдан: {updated_count}")
 
     @admin.action(description="Снять статус персонала")
     def remove_staff(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
         """Снять статус персонала, кроме текущего пользователя."""
-        updated_count = queryset.exclude(pk=request.user.pk).update(is_staff=False, updated_at=timezone.now())
+        queryset = self._exclude_superusers_for_non_superuser(request, queryset).exclude(pk=request.user.pk)
+        updated_count = queryset.update(is_staff=False, updated_at=timezone.now())
         self.message_user(request, f"Статус персонала снят: {updated_count}")

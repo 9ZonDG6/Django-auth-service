@@ -15,6 +15,8 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("backend/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("backend/swagger/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("backend/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("auth/", include("apps.authentication.urls")),
+    path("users/", include("apps.users.urls")),
 ]
 
 if SILK_ENABLED:
