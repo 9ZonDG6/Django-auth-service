@@ -1,3 +1,8 @@
+from config.settings.env import EXTRA_CHECKS_ENABLED
+
+if EXTRA_CHECKS_ENABLED:
+    globals()["INSTALLED_APPS"].append("extra_checks")
+
 EXTRA_CHECKS = {
     "checks": [
         {

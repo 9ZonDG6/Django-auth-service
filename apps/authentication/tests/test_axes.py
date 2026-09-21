@@ -3,7 +3,9 @@ from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
+from axes.models import AccessLog
 from django.conf import settings
+from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -67,7 +69,10 @@ def test_api_lockout_response(api_client: APIClient, username: str, request_form
         )
     assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert response["Content-Type"].startswith("application/json")
-    assert response.json() == {"detail": "Слишком много неудачных попыток входа."}
+    assert response.json() == {
+        "type": "client_error",
+        "errors": [{"code": "throttled", "detail": "Слишком много неудачных попыток входа.", "attr": None}],
+    }
 
 
 def test_admin_lockout_response(api_client: APIClient) -> None:
@@ -80,3 +85,51 @@ def test_admin_lockout_response(api_client: APIClient) -> None:
     assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert str(settings.AXES_COOLOFF_MESSAGE) in response.content.decode()
     assert "_auth_user_id" not in api_client.session
+
+
+@pytest.mark.parametrize("user_agent", ["browser-swagger", "Python-urllib/3.14"])
+def test_jwt_success_is_logged_without_session(api_client: APIClient, user_agent: str) -> None:
+    """Браузер и сервисный клиент получают запись с настоящим путём API."""
+    User.objects.create_user(username="audituser", password=PASSWORD)
+    response = api_client.post(
+        "/api/v1/auth/login/",
+        {"username": "audituser", "password": PASSWORD},
+        HTTP_USER_AGENT=user_agent,
+        REMOTE_ADDR="192.0.2.10",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    entry = AccessLog.objects.get(username="audituser")
+    assert entry.path_info == "/api/v1/auth/login/"
+    assert entry.ip_address == "192.0.2.10"
+    assert entry.user_agent == user_agent
+    assert not entry.session_hash
+    assert "_auth_user_id" not in api_client.session
+    refreshed = api_client.post("/api/v1/auth/refresh/", {"refresh": response.data["refresh"]})
+    assert refreshed.status_code == status.HTTP_200_OK
+    assert AccessLog.objects.filter(username="audituser").count() == 1
+
+
+@override_settings(AXES_DISABLE_ACCESS_LOG=True)
+def test_jwt_respects_disabled_access_log(api_client: APIClient) -> None:
+    """Отключение журнала не препятствует выдаче JWT."""
+    User.objects.create_user(username="audituser", password=PASSWORD)
+    response = api_client.post("/api/v1/auth/login/", {"username": "audituser", "password": PASSWORD})
+    assert response.status_code == status.HTTP_200_OK
+    assert not AccessLog.objects.exists()
+
+
+def test_failed_jwt_login_is_not_success(api_client: APIClient) -> None:
+    """Неверный пароль не создаёт запись успешного входа."""
+    User.objects.create_user(username="audituser", password=PASSWORD)
+    response = api_client.post("/api/v1/auth/login/", {"username": "audituser", "password": "wrong"})
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert not AccessLog.objects.exists()
+
+
+@override_settings(AXES_ENABLED=False)
+def test_jwt_login_with_axes_disabled(api_client: APIClient) -> None:
+    """Отключённый AXES не ломает вход и не записывает успешную выдачу JWT."""
+    User.objects.create_user(username="withoutaxes", password=PASSWORD)
+    response = api_client.post("/api/v1/auth/login/", {"username": "withoutaxes", "password": PASSWORD})
+    assert response.status_code == status.HTTP_200_OK
+    assert not AccessLog.objects.exists()

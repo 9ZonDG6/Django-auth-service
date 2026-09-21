@@ -1,120 +1,64 @@
 import logging
-from typing import TYPE_CHECKING
 
-from config.settings.env import BASE_DIR, LOGGING_ENABLED
+import structlog
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from common.logging import prepare_event
+from config.settings.env import LOG_FORMAT, LOG_LEVEL, LOGGING_ENABLED
 
-DEFAULT_LOG_LEVEL = "INFO"
-DATABASE_LOG_LEVEL = "WARNING"
-REQUEST_LOG_LEVEL = "ERROR"
+_SHARED_PROCESSORS = [
+    structlog.contextvars.merge_contextvars,
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.add_logger_name,
+    structlog.processors.TimeStamper(fmt="iso", utc=True),
+    prepare_event,
+]
 
+structlog.configure(
+    processors=[
+        structlog.stdlib.filter_by_level,
+        structlog.stdlib.PositionalArgumentsFormatter(),
+        *_SHARED_PROCESSORS,
+        structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+    ],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
 
-def build_file_handler(filename: Path, level: str = DEFAULT_LOG_LEVEL) -> dict[str, object]:
-    """Создаёт файловый handler с ежедневной ротацией."""
-    return {
-        "class": "logging.handlers.TimedRotatingFileHandler",
-        "level": level,
-        "formatter": "verbose",
-        "filename": filename,
-        "when": "midnight",
-        "interval": 1,
-        "backupCount": 7,
-        "encoding": "utf-8",
-        "utc": False,
-        "delay": True,
-    }
-
-
-def build_logger(
-    handlers: list[str] | None = None,
-    level: str = DEFAULT_LOG_LEVEL,
-    *,
-    propagate: bool = False,
-) -> dict[str, object]:
-    """Создаёт конфиг logger."""
-    return {
-        "handlers": ["console"] if handlers is None else handlers,
-        "level": level,
-        "propagate": propagate,
-    }
-
-
-def create_log_dir(name: str) -> Path:
-    """Создаёт директорию для логов и возвращает путь до неё."""
-    log_dir = BASE_DIR / "logs" / name
-    log_dir.mkdir(exist_ok=True, parents=True)
-    return log_dir
-
-
-if LOGGING_ENABLED:
-    logging.captureWarnings(capture=True)
-
-    DJANGO_LOG_DIR = create_log_dir("django")
-    THIRD_PARTY_LOG_DIR = create_log_dir("third_party")
-    ROOT_LOG_DIR = create_log_dir("root")
-
-    LOGGING = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "verbose": {
-                "format": "[{asctime}] {levelname:<8} {name}:{lineno} | {message}",
-                "style": "{",
-                "datefmt": "%Y-%m-%d %H:%M:%S",
-            },
-            "simple": {
-                "format": "{levelname:<8} {message}",
-                "style": "{",
-            },
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "structured": {
+            "()": structlog.stdlib.ProcessorFormatter,
+            "foreign_pre_chain": _SHARED_PROCESSORS,
+            "keep_exc_info": False,
+            "processors": [
+                structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                structlog.processors.JSONRenderer() if LOG_FORMAT == "json" else structlog.dev.ConsoleRenderer(),
+            ],
         },
-        "handlers": {
-            "console": {
-                "level": DEFAULT_LOG_LEVEL,
-                "class": "logging.StreamHandler",
-                "formatter": "simple",
-                "stream": "ext://sys.stdout",
-            },
-            "console_warnings": {
-                "level": "WARNING",
-                "class": "logging.StreamHandler",
-                "formatter": "simple",
-                "stream": "ext://sys.stdout",
-            },
-            "root_file": build_file_handler(ROOT_LOG_DIR / "root.log"),
-            "django_file": build_file_handler(DJANGO_LOG_DIR / "django.log"),
-            "django_request_file": build_file_handler(
-                DJANGO_LOG_DIR / "django_request.log",
-                level=REQUEST_LOG_LEVEL,
-            ),
-            "django_db_file": build_file_handler(
-                DJANGO_LOG_DIR / "django_db.log",
-                level=DATABASE_LOG_LEVEL,
-            ),
-            "django_server_file": build_file_handler(DJANGO_LOG_DIR / "django_server.log"),
-            "django_templates_file": build_file_handler(DJANGO_LOG_DIR / "django_template.log"),
-            "django_safe_migrations_file": build_file_handler(THIRD_PARTY_LOG_DIR / "django_safe_migrations.log"),
-            "rest_framework_file": build_file_handler(THIRD_PARTY_LOG_DIR / "rest_framework.log"),
-            "axes_file": build_file_handler(THIRD_PARTY_LOG_DIR / "axes.log"),
-            "silk_file": build_file_handler(THIRD_PARTY_LOG_DIR / "silk.log"),
-            "zeal_file": build_file_handler(THIRD_PARTY_LOG_DIR / "zeal.log"),
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "structured",
+            "stream": "ext://sys.stdout",
         },
-        "loggers": {
-            "django": build_logger(["console", "django_file"]),
-            "django.request": build_logger(["console", "django_request_file"], level=REQUEST_LOG_LEVEL),
-            "django.db.backends": build_logger(["django_db_file"], level=DATABASE_LOG_LEVEL),
-            "django.server": build_logger(["console", "django_server_file"]),
-            "django.template": build_logger(["console", "django_templates_file"]),
-            "django_safe_migrations": build_logger(["django_safe_migrations_file"]),
-            "rest_framework": build_logger(["rest_framework_file"]),
-            "axes": build_logger(["console_warnings", "axes_file"]),
-            "silk": build_logger(["silk_file"]),
-            "py.warnings": build_logger(["console"]),
-            "zeal": build_logger(["zeal_file"]),
-        },
-        "root": {
-            "handlers": ["root_file"],
-            "level": DEFAULT_LOG_LEVEL,
-        },
-    }
+        "null": {"class": "logging.NullHandler"},
+    },
+    "root": {"handlers": ["console"] if LOGGING_ENABLED else ["null"], "level": LOG_LEVEL},
+    "loggers": {
+        name: {"handlers": [], "propagate": True, "level": LOG_LEVEL}
+        for name in ("django", "django_structlog", "axes", "rest_framework", "silk", "zeal", "py.warnings")
+    },
+}
+# HTTP-события уже пишет middleware; штатные access-логи могут содержать query string.
+LOGGING["loggers"]["django.server"] = {"handlers": ["null"], "propagate": False}
+LOGGING["loggers"]["django.request"] = {"handlers": ["null"], "propagate": False}
+LOGGING["loggers"]["django.db.backends"] = {"handlers": [], "propagate": True, "level": "WARNING"}
+# Скрыть информационное сообщение AXES при запуске, сохранив предупреждения.
+LOGGING["loggers"]["axes.apps"] = {"handlers": [], "propagate": True, "level": "WARNING"}
+DJANGO_STRUCTLOG_IP_LOGGING_ENABLED = False
+DJANGO_STRUCTLOG_STATUS_START_LOG_LEVEL = logging.DEBUG
+logging.captureWarnings(capture=True)

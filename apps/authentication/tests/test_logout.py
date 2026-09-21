@@ -1,8 +1,10 @@
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 from rest_framework import status
 
+from apps.authentication.services.jwt_tokens import KeyIdRefreshToken
 from apps.users.models import User
 
 if TYPE_CHECKING:
@@ -59,6 +61,38 @@ def test_logout_rejects_another_users_refresh_token(api_client: APIClient) -> No
     response = api_client.post("/api/v1/auth/logout/", {"refresh": victim_tokens["refresh"]})
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    assert response.data == {
+        "type": "validation_error",
+        "errors": [{"code": "invalid_token", "detail": "Недействительный refresh-токен.", "attr": None}],
+    }
+    malformed = api_client.post("/api/v1/auth/logout/", {"refresh": "not-a-jwt"})
+    assert malformed.status_code == response.status_code
+    assert malformed.data == response.data
+
     api_client.credentials()
     still_valid = api_client.post("/api/v1/auth/refresh/", {"refresh": victim_tokens["refresh"]})
     assert still_valid.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.parametrize("token_state", ["expired", "blacklisted", "access"])
+def test_logout_hides_invalid_token_reason(api_client: APIClient, token_state: str) -> None:
+    """Причина отклонения JWT не раскрывается в ответе logout."""
+    tokens = _login(api_client)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+    token = KeyIdRefreshToken(tokens["refresh"])
+    raw_token = tokens["refresh"]
+    if token_state == "expired":
+        token.set_exp(lifetime=-token.token_backend.get_leeway() - timedelta(seconds=60))
+        raw_token = str(token)
+    elif token_state == "blacklisted":
+        token.blacklist()
+    else:
+        raw_token = tokens["access"]
+
+    response = api_client.post("/api/v1/auth/logout/", {"refresh": raw_token})
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.data == {
+        "type": "validation_error",
+        "errors": [{"code": "invalid_token", "detail": "Недействительный refresh-токен.", "attr": None}],
+    }

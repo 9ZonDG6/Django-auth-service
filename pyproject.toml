@@ -1,33 +1,41 @@
 [project]
 name = "django-auth-service"
 version = "0.2.5"
-description = "Shared authentication service built with Django and Django REST Framework."
+description = "Shared authentication service built with Django REST Framework."
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "argon2-cffi>=25.1.0",
+    "cryptography>=50.0.1",
     "django>=6.0.5",
     "django-axes[ipware]>=8.3.1",
     "django-cors-headers>=4.9.0",
+    "django-csp>=4.0",
     "django-environ>=0.13.0",
-    "django-permissions-policy>=4.30.0",
     "django-filter>=25.2",
     "django-filter-stubs>=0.1.3",
+    "django-health-check>=4.6.1",
+    "django-permissions-policy>=4.30.0",
     "django-safe-migrations>=0.6.0",
     "django-silk>=5.5.0",
     "django-split-settings>=1.3.2",
+    "django-structlog>=10.1.0",
+    "django-zeal>=2.2.4",
     "djangorestframework>=3.17.1",
+    "djangorestframework-simplejwt[crypto]>=5.5.1",
     "drf-spectacular>=0.29.0",
+    "drf-spectacular-sidecar>=2026.9.1",
+    "drf-standardized-errors>=0.16.0",
     "psycopg[binary]>=3.3.4",
     "pygments>=2.20.0",
-    "sqlparse>=0.5.5",
-    "djangorestframework-simplejwt[crypto]>=5.5.1",
     "pyjwt>=2.13.0",
-    "django-zeal>=2.2.4",
-    "argon2-cffi>=25.1.0",
+    "sqlparse>=0.5.5",
+    "structlog>=26.1.0",
 ]
 
 [dependency-groups]
 dev = [
+    "deptry>=0.25.1",
     "django-extra-checks>=0.17.0",
     "django-query-counter>=0.5.0",
     "django-stubs>=6.0.4",
@@ -36,19 +44,58 @@ dev = [
     "dump-env>=1.7.0",
     "import-linter>=2.11",
     "ipython>=9.13.0",
+    "pip-audit>=2.9.0",
     "pre-commit>=4.6.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "pytest-django>=4.12.0",
+    "pytest-timeout>=2.4.0",
     "ruff>=0.15.14",
     "ty>=0.0.39",
 ]
 
 [tool.pytest.ini_options]
+addopts = ["--strict-markers", "--strict-config", "--tb=short"]
+xfail_strict = true
+timeout = 60
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
-testpaths = ["apps/*/tests"]
+testpaths = ["apps/*/tests", "common/tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["apps", "common"]
+omit = ["*/migrations/*", "*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.deptry]
+known_first_party = ["apps", "common", "config"]
+extend_exclude = ["apps/[^/]+/tests/", "common/tests/", "integration/", "conftest\\.py$"]
+
+[tool.deptry.per_rule_ignores]
+DEP004 = ["query_counter"] # Middleware подключается только при QUERY_COUNTER_ENABLED.
+DEP002 = [
+    "argon2-cffi", # Хеширование через Django Argon2PasswordHasher.
+    "django-cors-headers", # INSTALLED_APPS и middleware CORS.
+    "django-filter", # INSTALLED_APPS и DEFAULT_FILTER_BACKENDS DRF.
+    "django-filter-stubs", # Аннотации django-filter для проверки типов.
+    "django-permissions-policy", # PermissionsPolicyMiddleware в настройках.
+    "django-safe-migrations", # INSTALLED_APPS и команда check_migrations.
+    "django-silk", # Профилировщик: приложение, middleware и URL через строки.
+    "django-zeal", # Детектор N+1, подключённый через middleware.
+    "drf-spectacular-sidecar", # Локальная статика Swagger/ReDoc через настройки.
+    "drf-standardized-errors", # Обработчик и OpenAPI подключаются строками в настройках.
+    "psycopg", # Драйвер PostgreSQL, загружаемый Django backend.
+    "pygments", # Подсветка кода в Browsable API DRF; сохраняем явный нижний предел версии.
+    "sqlparse", # SQL-парсер Django/Silk; сохраняем явный нижний предел версии.
+]
 
 [tool.importlinter]
 root_packages = [
+    "apps",
     "common",
     "config",
 ]
@@ -62,6 +109,69 @@ source_modules = [
 ]
 forbidden_modules = [
     "config",
+]
+
+[[tool.importlinter.contracts]]
+name = "Services must not import views or serializers"
+type = "forbidden"
+source_modules = [
+    "apps.authentication.services",
+    "apps.users.services",
+]
+forbidden_modules = [
+    "apps.authentication.serializers",
+    "apps.authentication.views",
+    "apps.users.serializers",
+    "apps.users.views",
+]
+
+[[tool.importlinter.contracts]]
+name = "Serializers must not import selectors services or views"
+type = "forbidden"
+source_modules = [
+    "apps.authentication.serializers",
+    "apps.users.serializers",
+]
+forbidden_modules = [
+    "apps.authentication.selectors",
+    "apps.authentication.services",
+    "apps.authentication.views",
+    "apps.users.selectors",
+    "apps.users.services",
+    "apps.users.views",
+]
+
+[[tool.importlinter.contracts]]
+name = "Models must not import selectors services serializers or views"
+type = "forbidden"
+source_modules = [
+    "apps.users.models",
+]
+forbidden_modules = [
+    "apps.authentication.selectors",
+    "apps.authentication.serializers",
+    "apps.authentication.services",
+    "apps.authentication.views",
+    "apps.users.selectors",
+    "apps.users.serializers",
+    "apps.users.services",
+    "apps.users.views",
+]
+
+[[tool.importlinter.contracts]]
+name = "Selectors must not import services serializers or views"
+type = "forbidden"
+source_modules = [
+    "apps.authentication.selectors",
+    "apps.users.selectors",
+]
+forbidden_modules = [
+    "apps.authentication.serializers",
+    "apps.authentication.services",
+    "apps.authentication.views",
+    "apps.users.serializers",
+    "apps.users.services",
+    "apps.users.views",
 ]
 
 [tool.ruff]
@@ -96,9 +206,9 @@ check-typed-exception = true
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*.py" = ["assert", "hardcoded-password-string", "hardcoded-password-func-arg"]
+"integration/*.py" = ["assert", "hardcoded-password-string", "hardcoded-password-func-arg"]
 "**/apps.py" = ["undocumented-public-class"]
 "config/settings/__init__.py" = ["non-empty-init-module"]
-"**/base_model.py" = ["undocumented-public-nested-class"]
 "manage.py" = ["import-outside-top-level"]
 
 [tool.ruff.lint]

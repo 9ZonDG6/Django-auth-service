@@ -47,15 +47,21 @@ def test_login_with_wrong_password_is_rejected(api_client: APIClient) -> None:
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-def test_login_does_not_trim_password_whitespace(api_client: APIClient) -> None:
-    """Пароль с пробелами по краям не должен обрезаться при валидации."""
-    User.objects.create_user(username="spaceuser", password="  Sp4ce-Pass!  ")
+@pytest.mark.parametrize("password", [" Str0ng-Pass-92!", "Str0ng-Pass-92! ", "\tStr0ng-Pass-92!\n"])
+def test_login_trims_password_edges(api_client: APIClient, password: str) -> None:
+    """Пробельные символы по краям не мешают входу."""
+    _create_user()
+    response = api_client.post(LOGIN_URL, {"username": "loginuser", "password": password})
+    assert response.status_code == status.HTTP_200_OK
 
-    with_spaces = api_client.post(LOGIN_URL, {"username": "spaceuser", "password": "  Sp4ce-Pass!  "})
-    trimmed = api_client.post(LOGIN_URL, {"username": "spaceuser", "password": "Sp4ce-Pass!"})
 
-    assert with_spaces.status_code == status.HTTP_200_OK
-    assert trimmed.status_code == status.HTTP_401_UNAUTHORIZED
+@pytest.mark.parametrize("password", ["Str0ng Pass-92!", "Str0ng\tPass-92!", "Str0ng\nPass-92!"])
+def test_login_preserves_internal_whitespace(api_client: APIClient, password: str) -> None:
+    """Пробельные символы внутри остаются частью проверяемого пароля."""
+    _create_user()
+    response = api_client.post(LOGIN_URL, {"username": "loginuser", "password": password})
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.data["errors"][0]["code"] == "no_active_account"
 
 
 def test_login_updates_last_login(api_client: APIClient) -> None:

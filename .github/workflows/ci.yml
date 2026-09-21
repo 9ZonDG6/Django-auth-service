@@ -32,7 +32,12 @@ jobs:
         run: cp .env.example .env
 
       - name: Run checks
-        run: make check
+        run: make check PYTEST_ARGS="--cov --cov-report=term-missing --cov-report=xml"
+
+      - name: Apply and check migrations
+        run: |
+          uv run python manage.py migrate --noinput
+          uv run python manage.py migrate --check
 
       - name: Fail if checks modified any file
         run: git diff --exit-code
@@ -73,7 +78,7 @@ jobs:
           uv sync --locked --project auth
           uv sync --locked --project tasks
       - name: Test real HTTP interaction
-        working-directory: tasks
+        working-directory: auth
         env:
-          AUTH_SERVICE_DIR: ${{ github.workspace }}/auth
-        run: uv run pytest tests/test_e2e.py tests/test_auth_contract.py -q
+          TASKS_SERVICE_DIR: ${{ github.workspace }}/tasks
+        run: uv run pytest integration/test_tasks_compatibility.py -q
