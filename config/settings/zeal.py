@@ -1,4 +1,4 @@
-from config.settings.env import LOGGING_ENABLED, ZEAL_ENABLED
+from config.settings.env import ZEAL_ENABLED
 
 if ZEAL_ENABLED:
     globals()["INSTALLED_APPS"].append("zeal")
@@ -17,6 +17,3 @@ if ZEAL_ENABLED:
         {"model": "silk.Request", "field": "response"},
         {"model": "sessions.Session", "field": "get()"},
     ]
-
-    if LOGGING_ENABLED:
-        globals()["LOGGING"]["loggers"]["py.warnings"]["handlers"].append("zeal_file")

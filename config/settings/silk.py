@@ -19,7 +19,7 @@ if SILK_ENABLED:
         "/silk",
         "/static",
         "/media",
-        "/auth",
+        "/api/v1/auth",
     )
     SILKY_IGNORED_PREFIXES_WITH_SLASH = tuple(f"{prefix}/" for prefix in SILKY_IGNORED_PREFIXES)
 

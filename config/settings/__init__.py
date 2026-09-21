@@ -4,6 +4,7 @@ include(
     "env.py",
     "django.py",
     "security.py",
+    "csp.py",
     "apps.py",
     "database.py",
     "logging.py",
@@ -12,6 +13,8 @@ include(
     "silk.py",
     "axes.py",
     "extra_checks.py",
+    "query_counter.py",
     "zeal.py",
+    "swagger.py",
     scope=globals(),
 )

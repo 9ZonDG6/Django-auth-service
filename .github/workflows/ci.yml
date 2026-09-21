@@ -32,7 +32,12 @@ jobs:
         run: cp .env.example .env
 
       - name: Run checks
-        run: make check
+        run: make check PYTEST_ARGS="--cov --cov-report=term-missing --cov-report=xml"
+
+      - name: Apply and check migrations
+        run: |
+          uv run python manage.py migrate --noinput
+          uv run python manage.py migrate --check
 
       - name: Fail if checks modified any file
         run: git diff --exit-code

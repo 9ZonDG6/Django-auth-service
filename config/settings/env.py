@@ -4,8 +4,6 @@ from pathlib import Path
 
 import environ
 
-from config.settings.apps import INSTALLED_APPS
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
@@ -23,18 +21,24 @@ SILK_ENABLED = env.bool("SILK_ENABLED", default=True)
 AXES_ENABLED = env.bool("AXES_ENABLED", default=True)
 ZEAL_ENABLED = env.bool("ZEAL_ENABLED", default=True)
 LOGGING_ENABLED = env.bool("LOGGING_ENABLED", default=True)
+LOG_LEVEL = env("LOG_LEVEL", default="INFO").upper()
+LOG_FORMAT = env("LOG_FORMAT", default="console" if ENVIRONMENT == "local" else "json")
+SERVICE_NAME = "django-auth-service"
+if LOG_FORMAT not in {"console", "json"}:
+    raise ValueError("LOG_FORMAT должен быть console или json")
+if LOG_LEVEL not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+    raise ValueError("Некорректный LOG_LEVEL")
 
-if EXTRA_CHECKS_ENABLED := env.bool(
+
+EXTRA_CHECKS_ENABLED = env.bool(
     "EXTRA_CHECKS_ENABLED",
     default=ENVIRONMENT == "local" and importlib.util.find_spec("extra_checks") is not None,
-):
-    INSTALLED_APPS.append("extra_checks")
+)
 
-if QUERY_COUNTER_ENABLED := env.bool(
+QUERY_COUNTER_ENABLED = env.bool(
     "QUERY_COUNTER_ENABLED",
     default=ENVIRONMENT == "local" and importlib.util.find_spec("query_counter") is not None,
-):
-    INSTALLED_APPS.append("query_counter")
+)
 
 # Axes
 AXES_FAILURE_TRIES = env.int("AXES_FAILURE_TRIES", default=5)
@@ -71,3 +75,6 @@ JWT_VERIFYING_KEY = base64.b64decode(env("JWT_VERIFYING_KEY", default="")).decod
 JWT_ISSUER = env("JWT_ISSUER", default="django-auth-service")
 
 JWT_AUDIENCE = env("JWT_AUDIENCE", default="")
+
+# Сначала наблюдаем нарушения CSP без блокировки интерфейсов.
+CSP_REPORT_ONLY = env.bool("CSP_REPORT_ONLY", default=True)

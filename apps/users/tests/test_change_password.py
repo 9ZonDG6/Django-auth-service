@@ -93,3 +93,13 @@ def test_change_password_updates_updated_at(api_client: APIClient) -> None:
 
     user.refresh_from_db()
     assert user.updated_at != updated_at_before
+
+
+@pytest.mark.parametrize("password", [" New-Str0ng!", "New-Str0ng! ", "New Str0ng!", "New\tStr0ng!", "New\nStr0ng!"])
+def test_change_password_trims_password_edges(api_client: APIClient, password: str) -> None:
+    """Обрезаются края нового пароля, пробельные символы внутри сохраняются."""
+    tokens = _login(api_client)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {tokens['access']}")
+    response = api_client.post(CHANGE_PASSWORD_URL, {"old_password": f" {OLD_PASSWORD} ", "new_password": password})
+    assert response.status_code == status.HTTP_200_OK
+    assert User.objects.get(username="cpuser").check_password(password.strip())

@@ -5,6 +5,7 @@ from django.contrib.admin.utils import quote
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group
+from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -13,7 +14,7 @@ from apps.users.models import User, UserGroup
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
-    from django.http import HttpRequest
+    from django.http import HttpRequest, HttpResponse
 
 
 admin.site.unregister(Group)
@@ -63,7 +64,6 @@ class UserAdmin(DjangoUserAdmin):
             {
                 "classes": ("collapse",),
                 "fields": (
-                    "id",
                     ("date_joined", "last_login"),
                     ("created_at", "updated_at"),
                 ),
@@ -104,9 +104,22 @@ class UserAdmin(DjangoUserAdmin):
     actions = (
         "activate_users",
         "deactivate_users",
-        "make_staff",
-        "remove_staff",
     )
+
+    def change_view(
+        self,
+        request: HttpRequest,
+        object_id: str,
+        form_url: str = "",
+        extra_context: dict[str, object] | None = None,
+    ) -> HttpResponse:
+        """Показать username и UUID в подзаголовке штатной карточки."""
+        response = super().change_view(request, object_id, form_url, extra_context)
+        if isinstance(response, TemplateResponse) and response.context_data is not None:
+            user = response.context_data.get("original")
+            if isinstance(user, User):
+                response.context_data["subtitle"] = f"{user.username} · {user.pk}"
+        return response
 
     def get_fieldsets(  # ty: ignore[invalid-method-override]
         self,
@@ -167,17 +180,3 @@ class UserAdmin(DjangoUserAdmin):
         queryset = self._exclude_superusers_for_non_superuser(request, queryset).exclude(pk=request.user.pk)
         updated_count = queryset.update(is_active=False, updated_at=timezone.now())
         self.message_user(request, f"Заблокировано пользователей: {updated_count}")
-
-    @admin.action(description="Выдать статус персонала")
-    def make_staff(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
-        """Выдать выбранным пользователям статус персонала."""
-        queryset = self._exclude_superusers_for_non_superuser(request, queryset)
-        updated_count = queryset.update(is_staff=True, updated_at=timezone.now())
-        self.message_user(request, f"Статус персонала выдан: {updated_count}")
-
-    @admin.action(description="Снять статус персонала")
-    def remove_staff(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
-        """Снять статус персонала, кроме текущего пользователя."""
-        queryset = self._exclude_superusers_for_non_superuser(request, queryset).exclude(pk=request.user.pk)
-        updated_count = queryset.update(is_staff=False, updated_at=timezone.now())
-        self.message_user(request, f"Статус персонала снят: {updated_count}")

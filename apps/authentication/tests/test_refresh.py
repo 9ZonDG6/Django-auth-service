@@ -61,3 +61,18 @@ def test_refresh_reflects_current_roles_not_stale_claims(api_client: APIClient) 
 
     claims_after_refresh = jwt.decode(response.data["access"], options={"verify_signature": False})
     assert claims_after_refresh["roles"] == []
+
+
+def test_refresh_rejected_after_password_reset(api_client: APIClient) -> None:
+    """Смена пароля вне API тоже запрещает обновление старой пары."""
+    tokens = _login(api_client)
+    user = User.objects.get(username="refreshuser")
+    user.set_password("Changed-Pass-93!")
+    user.save(update_fields=["password"])
+    response = api_client.post("/api/v1/auth/refresh/", {"refresh": tokens["refresh"]})
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    fresh = api_client.post("/api/v1/auth/login/", {"username": user.username, "password": "Changed-Pass-93!"})
+    assert fresh.status_code == status.HTTP_200_OK
+    assert (
+        api_client.post("/api/v1/auth/refresh/", {"refresh": fresh.data["refresh"]}).status_code == status.HTTP_200_OK
+    )

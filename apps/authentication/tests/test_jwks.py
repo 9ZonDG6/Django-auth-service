@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 import jwt
 import pytest
 from rest_framework import status
+from rest_framework_simplejwt import state
+from rest_framework_simplejwt.backends import TokenBackend
 
 from apps.users.models import User
 
@@ -53,3 +55,17 @@ def test_access_token_header_kid_matches_jwks(api_client: APIClient) -> None:
     jwks = api_client.get("/.well-known/jwks.json").data
 
     assert header.get("kid") == jwks["keys"][0]["kid"]
+
+
+def test_rotated_pair_has_kid_without_global_backend_patch(api_client: APIClient) -> None:
+    """Свои токены сохраняют kid при ротации, глобальный backend SimpleJWT не подменён."""
+    assert type(state.token_backend) is TokenBackend
+    User.objects.create_user(username="rotation", password=PASSWORD)
+    pair = api_client.post("/api/v1/auth/login/", {"username": "rotation", "password": PASSWORD}).data
+    kid = api_client.get("/.well-known/jwks.json").data["keys"][0]["kid"]
+    for token in pair.values():
+        assert jwt.get_unverified_header(token)["kid"] == kid
+    refreshed = api_client.post("/api/v1/auth/refresh/", {"refresh": pair["refresh"]})
+    assert refreshed.status_code == status.HTTP_200_OK
+    for token in refreshed.data.values():
+        assert jwt.get_unverified_header(token)["kid"] == kid

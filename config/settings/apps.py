@@ -4,11 +4,14 @@ LOCAL_APPS = [
 ]
 
 THIRD_PARTY_APPS = [
+    "django_structlog",
+    "health_check",
     "corsheaders",
     "django_safe_migrations",
     "rest_framework",
     "django_filters",
     "drf_spectacular",
+    "drf_spectacular_sidecar",
     "rest_framework_simplejwt.token_blacklist",
 ]
 

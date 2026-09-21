@@ -3,23 +3,39 @@ from rest_framework import serializers
 from apps.users.models import User
 
 
-class RegisterSerializer(serializers.Serializer):
+class RegisterSerializer(serializers.ModelSerializer):
     """Сериализатор для создания User."""
 
-    username = serializers.CharField(max_length=150)
-    password = serializers.CharField(write_only=True, trim_whitespace=False)
-    email = serializers.EmailField(required=False, allow_blank=True, max_length=254)
-    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    patronymic = serializers.CharField(required=False, allow_blank=True, max_length=150)
-    phone = serializers.CharField(required=False, allow_blank=True, max_length=11)
+    password = serializers.CharField(write_only=True)
+    password_verify = serializers.CharField(write_only=True)
+    phone = serializers.RegexField(
+        regex=r"\A[0-9]{11}\Z",
+        required=False,
+        allow_blank=True,
+        max_length=11,
+        help_text="11 цифр без пробелов и знака +.",
+        error_messages={"invalid": "Введите телефон из 11 цифр без пробелов и знака +."},
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            "username",
+            "password",
+            "password_verify",
+            "email",
+            "first_name",
+            "last_name",
+            "patronymic",
+            "phone",
+        )
 
 
 class ChangePasswordSerializer(serializers.Serializer):
     """Сериализатор для смены пароля User."""
 
-    old_password = serializers.CharField(write_only=True, trim_whitespace=False)
-    new_password = serializers.CharField(write_only=True, trim_whitespace=False)
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
 
 
 class UserSerializer(serializers.ModelSerializer):

@@ -33,3 +33,9 @@ staticfiles/
 # JWT
 jwt-private.pem
 jwt-public.pem
+
+# Local coverage reports
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
