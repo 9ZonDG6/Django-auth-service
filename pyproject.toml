@@ -206,6 +206,7 @@ check-typed-exception = true
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*.py" = ["assert", "hardcoded-password-string", "hardcoded-password-func-arg"]
+"integration/*.py" = ["assert", "hardcoded-password-string", "hardcoded-password-func-arg"]
 "**/apps.py" = ["undocumented-public-class"]
 "config/settings/__init__.py" = ["non-empty-init-module"]
 "manage.py" = ["import-outside-top-level"]

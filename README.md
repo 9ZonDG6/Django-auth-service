@@ -274,14 +274,14 @@ API обоих проектов использует префикс `/api/v1/` �
 
 Приложения находятся в `apps/`, настройки разделены по назначению в
 `config/settings/`. Тесты приложения лежат рядом с ним, межсервисные тесты —
-в `integration/` репозитория задач. Для админки tasks хранит локальные записи сотрудников с UUID из auth, без рабочих паролей.
+в `integration/`. Для админки tasks хранит локальные записи сотрудников с UUID из auth, без рабочих паролей.
 Эти записи доступны только для просмотра; пользователи управляются в auth.
 Username в tasks — копия имени, которая обновляется при входе и не обязана быть уникальной.
 
-Полная проверка взаимодействия запускается из проекта задач:
+Проверка совместимости с сервисом задач запускается из auth:
 
 ```bash
-AUTH_SERVICE_DIR=/path/to/Django-auth-service uv run pytest integration/test_e2e.py -q
+TASKS_SERVICE_DIR=/path/to/Django-tasks-service uv run pytest integration/test_tasks_compatibility.py -q
 ```
 
 Тест запускает оба приложения по HTTP на свободных локальных портах, с отдельными
@@ -315,8 +315,8 @@ User-Agent. Метка помогает определить заявленны�
 разрешены и сохраняются без изменений при регистрации, смене пароля и входе.
 
 JWT с `kid` выдаются классами из `apps/authentication/services/jwt_tokens.py`: глобальный
-backend SimpleJWT не подменяется. Ключи и JWKS находятся в `services/keys.py`, интеграция
-с AXES — в `services/axes.py`; views отвечают за HTTP, сценарии выдачи и отзыва токенов — в `services/authentication.py`.
+backend SimpleJWT не подменяется. Ключи и JWKS находятся в `services/jwks.py`, интеграция
+с AXES — в `services/login_audit.py`; views отвечают за HTTP, сценарии выдачи и отзыва токенов — в `services/login.py` и `services/token_lifecycle.py`.
 
 
 ### Формат ошибок API

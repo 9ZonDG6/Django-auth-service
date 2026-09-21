@@ -57,6 +57,8 @@ LOGGING = {
 LOGGING["loggers"]["django.server"] = {"handlers": ["null"], "propagate": False}
 LOGGING["loggers"]["django.request"] = {"handlers": ["null"], "propagate": False}
 LOGGING["loggers"]["django.db.backends"] = {"handlers": [], "propagate": True, "level": "WARNING"}
+# Скрыть информационное сообщение AXES при запуске, сохранив предупреждения.
+LOGGING["loggers"]["axes.apps"] = {"handlers": [], "propagate": True, "level": "WARNING"}
 DJANGO_STRUCTLOG_IP_LOGGING_ENABLED = False
 DJANGO_STRUCTLOG_STATUS_START_LOG_LEVEL = logging.DEBUG
 logging.captureWarnings(capture=True)
